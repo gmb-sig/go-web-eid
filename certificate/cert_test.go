@@ -132,9 +132,19 @@ func TestCheckKeyUsageForSigning(t *testing.T) {
 	bad, _ := makeCert(t, certOptions{keyUsage: x509.KeyUsageDigitalSignature}, nil, nil)
 	qt.Check(t, qt.IsNotNil(CheckKeyUsageForSigning(bad)))
 
-	// A certificate with no key-usage constraints is treated permissively.
+	// A certificate that does not assert content-commitment is rejected.
 	none, _ := makeCert(t, certOptions{}, nil, nil)
-	qt.Check(t, qt.IsNil(CheckKeyUsageForSigning(none)))
+	qt.Check(t, qt.IsNotNil(CheckKeyUsageForSigning(none)))
+}
+
+func TestCheckKeyUsageForAuthenticationStrict(t *testing.T) {
+	// No key usage and no EKU at all must be rejected (not permissive).
+	noUsage, _ := makeCert(t, certOptions{}, nil, nil)
+	qt.Check(t, qt.IsNotNil(CheckKeyUsageForAuthentication(noUsage)))
+
+	// digitalSignature but no EKU must be rejected.
+	noEKU, _ := makeCert(t, certOptions{keyUsage: x509.KeyUsageDigitalSignature}, nil, nil)
+	qt.Check(t, qt.IsNotNil(CheckKeyUsageForAuthentication(noEKU)))
 }
 
 func TestCheckDisallowedPolicies(t *testing.T) {

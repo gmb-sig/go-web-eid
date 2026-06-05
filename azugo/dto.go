@@ -31,6 +31,15 @@ type SubjectResponse struct {
 	Surname     string `json:"surname,omitempty"`
 }
 
+// AssertionResponse is returned by POST /auth/login when the handler is
+// configured with an assertion issuer (WithAssertionIssuer). The Assertion is a
+// short-lived signed JWS the consuming Auth service verifies via the service's
+// JWKS and maps to an internal identity.
+type AssertionResponse struct {
+	Assertion string          `json:"assertion"`
+	Subject   SubjectResponse `json:"subject"`
+}
+
 // SigningCertificateRequest is the body of POST /sign/certificate.
 type SigningCertificateRequest struct {
 	// Certificate is the base64-encoded DER signing certificate.
@@ -65,7 +74,14 @@ func (r *FinalizeRequest) Validate(ctx *azugo.Context) error {
 	return ctx.Validate().Struct(r)
 }
 
-// FinalizeResponse is returned by POST /sign/finalize.
+// FinalizeResponse is returned by POST /sign/finalize. It echoes the card's
+// signed digest (the raw signature value) and the parsed authentication
+// certificate (base64 DER) so the integrating back end can assemble and
+// validate its signature container. This library never builds the container.
 type FinalizeResponse struct {
 	Status string `json:"status"`
+	// Signature is the base64-encoded raw card signature value (signed digest).
+	Signature string `json:"signature,omitempty"`
+	// AuthCertificate is the base64-encoded DER authentication certificate.
+	AuthCertificate string `json:"authCertificate,omitempty"`
 }

@@ -45,10 +45,12 @@ func CheckValidity(cert *x509.Certificate, now time.Time) error {
 }
 
 // CheckKeyUsageForAuthentication ensures the certificate may be used for client
-// authentication: digital-signature key usage plus the client-authentication
-// extended key usage.
+// authentication: it must assert the digital-signature key usage AND the
+// client-authentication extended key usage. Both are required (not merely
+// "if present"), matching the reference validators — an eID authentication
+// certificate always carries them.
 func CheckKeyUsageForAuthentication(cert *x509.Certificate) error {
-	if cert.KeyUsage != 0 && cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
+	if cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
 		return exceptions.ErrUserCertificateWrongPurpose
 	}
 	if !hasExtKeyUsage(cert, x509.ExtKeyUsageClientAuth) {
@@ -57,21 +59,21 @@ func CheckKeyUsageForAuthentication(cert *x509.Certificate) error {
 	return nil
 }
 
-// CheckKeyUsageForSigning ensures the certificate may be used for non-repudiation
-// (content-commitment) signing, as required of an eID signing certificate.
+// CheckKeyUsageForSigning ensures the certificate asserts the content-commitment
+// (non-repudiation) key usage, as required of an eID signing certificate. The
+// usage is required: a certificate that does not assert it is rejected.
 func CheckKeyUsageForSigning(cert *x509.Certificate) error {
-	if cert.KeyUsage != 0 && cert.KeyUsage&x509.KeyUsageContentCommitment == 0 {
+	if cert.KeyUsage&x509.KeyUsageContentCommitment == 0 {
 		return exceptions.ErrSigningCertificateInvalid
 	}
 	return nil
 }
 
-// hasExtKeyUsage reports whether the certificate carries the given EKU, treating
-// a certificate with no EKU constraints (or AnyExtendedKeyUsage) as permissive.
+// hasExtKeyUsage reports whether the certificate explicitly carries the given
+// EKU (or the any-EKU wildcard). An empty EKU list is NOT treated as
+// permissive: an eID authentication certificate must declare client
+// authentication.
 func hasExtKeyUsage(cert *x509.Certificate, want x509.ExtKeyUsage) bool {
-	if len(cert.ExtKeyUsage) == 0 {
-		return true
-	}
 	for _, eku := range cert.ExtKeyUsage {
 		if eku == want || eku == x509.ExtKeyUsageAny {
 			return true

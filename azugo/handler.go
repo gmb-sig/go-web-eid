@@ -6,6 +6,7 @@ import (
 	"os"
 
 	webeid "github.com/gmb-sig/go-web-eid"
+	"github.com/gmb-sig/go-web-eid/assertion"
 	"github.com/gmb-sig/go-web-eid/certificate"
 	"github.com/gmb-sig/go-web-eid/ocsp"
 	"github.com/gmb-sig/go-web-eid/signing"
@@ -19,11 +20,53 @@ type Handler struct {
 	generator webeid.ChallengeNonceGenerator
 	store     webeid.ChallengeNonceStore
 	signer    *signing.Signer
+
+	// assertionIssuer, when set, makes /auth/login return a signed identity
+	// assertion; publishedKeys backs the JWKS endpoint.
+	assertionIssuer *assertion.Issuer
+	publishedKeys   *assertion.KeySet
+}
+
+// Option customises a Handler at construction.
+type Option func(*Handler)
+
+// WithNonceStore overrides the default in-process nonce store. Supply a
+// Redis-backed store (see package redisstore) for clustered, multi-pod
+// deployments where challenge and login may land on different instances.
+func WithNonceStore(store webeid.ChallengeNonceStore) Option {
+	return func(h *Handler) {
+		if store != nil {
+			h.store = store
+		}
+	}
+}
+
+// WithAssertionIssuer enables signed identity assertions on POST /auth/login
+// and publishes the issuer's verification keys at /.well-known/jwks.json. When
+// set, /auth/login returns an AssertionResponse instead of a bare subject.
+func WithAssertionIssuer(iss *assertion.Issuer) Option {
+	return func(h *Handler) {
+		h.assertionIssuer = iss
+		if iss != nil && h.publishedKeys == nil {
+			h.publishedKeys = iss.KeySet()
+		}
+	}
+}
+
+// WithPublishedJWKS overrides the key set published at /.well-known/jwks.json.
+// Use it to publish previous keys alongside the active one during rotation.
+func WithPublishedJWKS(keys *assertion.KeySet) Option {
+	return func(h *Handler) {
+		if keys != nil {
+			h.publishedKeys = keys
+		}
+	}
 }
 
 // New builds a Handler from configuration, loading the trusted intermediate CA
-// certificates and wiring the validator, nonce generator and signer.
-func New(cfg *Configuration) (*Handler, error) {
+// certificates and wiring the validator, nonce generator and signer. Options
+// may override the nonce store and enable assertion issuance.
+func New(cfg *Configuration, opts ...Option) (*Handler, error) {
 	if cfg == nil {
 		return nil, errors.New("webeid: configuration is required")
 	}
@@ -42,15 +85,6 @@ func New(cfg *Configuration) (*Handler, error) {
 		return nil, err
 	}
 
-	store := NewSessionStore(cfg)
-	generator, err := webeid.NewChallengeNonceGeneratorBuilder().
-		WithChallengeNonceStore(store).
-		WithNonceTTL(cfg.NonceTTL).
-		Build()
-	if err != nil {
-		return nil, err
-	}
-
 	signerOpts := signing.Options{
 		HashPreference: cfg.SigningHashPreference,
 		Trust:          trust,
@@ -59,7 +93,7 @@ func New(cfg *Configuration) (*Handler, error) {
 		signerOpts.OCSPChecker = ocsp.NewChecker(ocsp.Options{
 			RequestTimeout:    cfg.OCSPRequestTimeout,
 			Designated:        designatedConfig(cfg),
-			NonceDisabledURLs: nil,
+			NonceDisabledURLs: cfg.OCSPNonceDisabledURLs,
 		})
 	}
 	signer, err := signing.NewSigner(signerOpts)
@@ -67,13 +101,29 @@ func New(cfg *Configuration) (*Handler, error) {
 		return nil, err
 	}
 
-	return &Handler{
+	h := &Handler{
 		config:    cfg,
 		validator: validator,
-		generator: generator,
-		store:     store,
 		signer:    signer,
-	}, nil
+	}
+	// Default in-process nonce store; overridable via WithNonceStore.
+	h.store = NewSessionStore(cfg)
+
+	for _, o := range opts {
+		o(h)
+	}
+
+	// The generator binds to the (possibly overridden) store.
+	generator, err := webeid.NewChallengeNonceGeneratorBuilder().
+		WithChallengeNonceStore(h.store).
+		WithNonceTTL(cfg.NonceTTL).
+		Build()
+	if err != nil {
+		return nil, err
+	}
+	h.generator = generator
+
+	return h, nil
 }
 
 // buildValidator constructs the auth-token validator from configuration.
@@ -81,7 +131,8 @@ func buildValidator(cfg *Configuration, cas []*x509.Certificate) (webeid.AuthTok
 	b := webeid.NewAuthTokenValidatorBuilder().
 		WithSiteOrigin(cfg.Origin).
 		WithTrustedCertificateAuthorities(cas...).
-		WithOcspRequestTimeout(cfg.OCSPRequestTimeout)
+		WithOcspRequestTimeout(cfg.OCSPRequestTimeout).
+		WithNonceDisabledOcspUrls(cfg.OCSPNonceDisabledURLs...)
 	if !cfg.OCSPEnabled {
 		b.WithoutUserCertificateRevocationCheckWithOcsp()
 	}

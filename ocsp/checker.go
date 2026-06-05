@@ -26,6 +26,8 @@ type Options struct {
 	AllowedResponseTimeSkew time.Duration
 	// MaxResponseThisUpdateAge bounds how old thisUpdate may be.
 	MaxResponseThisUpdateAge time.Duration
+	// Now overrides the clock used for freshness checks (primarily for testing).
+	Now func() time.Time
 }
 
 // DefaultOptions returns the default OCSP options, matching the reference
@@ -36,6 +38,7 @@ func DefaultOptions() Options {
 		RequestTimeout:           5 * time.Second,
 		AllowedResponseTimeSkew:  15 * time.Minute,
 		MaxResponseThisUpdateAge: 2 * time.Minute,
+		Now:                      time.Now,
 	}
 }
 
@@ -58,6 +61,9 @@ func NewChecker(opts Options) *Checker {
 	}
 	if opts.MaxResponseThisUpdateAge <= 0 {
 		opts.MaxResponseThisUpdateAge = def.MaxResponseThisUpdateAge
+	}
+	if opts.Now == nil {
+		opts.Now = def.Now
 	}
 	return &Checker{opts: opts}
 }
@@ -99,7 +105,7 @@ func (c *Checker) Check(ctx context.Context, cert, issuer *x509.Certificate) err
 		}
 	}
 
-	if err := c.checkFreshness(resp, time.Now()); err != nil {
+	if err := c.checkFreshness(resp, c.opts.Now()); err != nil {
 		return err
 	}
 

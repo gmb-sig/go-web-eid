@@ -7,6 +7,7 @@ import (
 	"azugo.io/azugo/token"
 	"azugo.io/azugo/user"
 
+	"github.com/gmb-sig/go-web-eid/assertion"
 	"github.com/gmb-sig/go-web-eid/certificate"
 	"github.com/gmb-sig/go-web-eid/exceptions"
 )
@@ -26,7 +27,23 @@ func (h *Handler) Bind(g azugo.Router) error {
 	sign.Use(EnsureSession(h.config))
 	sign.Post("/certificate", h.signingCertificate)
 	sign.Post("/finalize", h.finalize)
+
+	// Publish the assertion verification keys when assertion issuance is enabled.
+	if h.publishedKeys != nil {
+		g.Get("/.well-known/jwks.json", h.jwks)
+	}
 	return nil
+}
+
+// jwks publishes the identity-assertion verification keys (JWKS).
+//
+// @operationId WebEidJWKS
+// @title Assertion verification keys
+// @success 200 {object} assertion.JWKS "JWKS"
+// @resource WebEID
+// @route /.well-known/jwks.json [get].
+func (h *Handler) jwks(ctx *azugo.Context) {
+	ctx.JSON(h.publishedKeys.JWKS())
 }
 
 // challenge issues a fresh challenge nonce bound to the session.
@@ -84,6 +101,25 @@ func (h *Handler) login(ctx *azugo.Context) {
 		"family_name": {subject.Surname},
 		"name":        {certificate.TitleCase(subject.GivenName + " " + subject.Surname)},
 	}))
+
+	// When configured as the external Web eID service, return a signed identity
+	// assertion the consuming Auth service verifies and maps. Otherwise return
+	// the bare validated subject (standalone / library use).
+	if h.assertionIssuer != nil {
+		tok, err := h.assertionIssuer.Issue(assertion.Subject{
+			NationalID: subject.IDCode,
+			Country:    subject.CountryCode,
+			GivenName:  subject.GivenName,
+			FamilyName: subject.Surname,
+			LoA:        "high", // physical eID smart card + QSCD → eIDAS "high"
+		})
+		if err != nil {
+			ctx.Error(err)
+			return
+		}
+		ctx.JSON(AssertionResponse{Assertion: tok, Subject: subject})
+		return
+	}
 	ctx.JSON(subject)
 }
 
@@ -142,9 +178,14 @@ func (h *Handler) finalize(ctx *azugo.Context) {
 		ctx.Error(exceptions.Wrap(exceptions.ErrSigningCertificateInvalid, err))
 		return
 	}
-	if _, _, err := h.signer.Finalize(sig, authDER); err != nil {
+	authCert, signed, err := h.signer.Finalize(sig, authDER)
+	if err != nil {
 		ctx.Error(err)
 		return
 	}
-	ctx.JSON(FinalizeResponse{Status: "ok"})
+	ctx.JSON(FinalizeResponse{
+		Status:          "ok",
+		Signature:       base64.StdEncoding.EncodeToString(signed),
+		AuthCertificate: base64.StdEncoding.EncodeToString(authCert.Raw),
+	})
 }

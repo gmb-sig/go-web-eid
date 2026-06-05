@@ -140,6 +140,7 @@ func (b *AuthTokenValidatorBuilder) Build() (AuthTokenValidator, error) {
 			NonceDisabledURLs:        b.nonceDisabledOCSPURL,
 			AllowedResponseTimeSkew:  b.ocspSkew,
 			MaxResponseThisUpdateAge: b.ocspMaxThisUpdateAge,
+			Now:                      b.now,
 		})
 	}
 	return v, nil

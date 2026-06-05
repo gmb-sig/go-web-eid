@@ -26,6 +26,9 @@ type Configuration struct {
 	OCSPRequestTimeout time.Duration `mapstructure:"ocsp_request_timeout" validate:"required,gt=0"`
 	// DesignatedOCSPURL optionally overrides the AIA responder URL.
 	DesignatedOCSPURL string `mapstructure:"designated_ocsp_url" validate:"omitempty,url"`
+	// OCSPNonceDisabledURLs lists responder URLs that do not support the OCSP
+	// nonce extension; requests to them omit the nonce.
+	OCSPNonceDisabledURLs []string `mapstructure:"ocsp_nonce_disabled_urls"`
 	// SessionCookieName is the pre-auth session cookie name.
 	SessionCookieName string `mapstructure:"session_cookie_name" validate:"required"`
 	// SigningHashPreference is the ordered hash-function preference list (N7).
@@ -46,6 +49,7 @@ func (c *Configuration) Bind(prefix string, v *viper.Viper) {
 	_ = v.BindEnv(prefix+".ocsp_enabled", "WEBEID_OCSP_ENABLED")
 	_ = v.BindEnv(prefix+".ocsp_request_timeout", "WEBEID_OCSP_REQUEST_TIMEOUT")
 	_ = v.BindEnv(prefix+".designated_ocsp_url", "WEBEID_DESIGNATED_OCSP_URL")
+	_ = v.BindEnv(prefix+".ocsp_nonce_disabled_urls", "WEBEID_OCSP_NONCE_DISABLED_URLS")
 	_ = v.BindEnv(prefix+".session_cookie_name", "WEBEID_SESSION_COOKIE_NAME")
 	_ = v.BindEnv(prefix+".signing_hash_preference", "WEBEID_SIGNING_HASH_PREFERENCE")
 }

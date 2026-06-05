@@ -23,9 +23,11 @@ type ChallengeNonceGenerator interface {
 }
 
 // challengeNonceGenerator is the default ChallengeNonceGenerator.
+//
+// Nonce TTL is not held here: expiry is recorded as IssuedAt and enforced by
+// the store / handler using the configured TTL.
 type challengeNonceGenerator struct {
 	store     ChallengeNonceStore
-	ttl       time.Duration
 	nonceSize int
 	random    io.Reader
 	now       func() time.Time
@@ -73,8 +75,8 @@ func (b *ChallengeNonceGeneratorBuilder) WithChallengeNonceStore(store Challenge
 	return b
 }
 
-// WithNonceTTL sets the nonce lifetime. The generator records IssuedAt; the
-// validator enforces expiry using the same TTL.
+// WithNonceTTL sets the nonce lifetime. Expiry is enforced by the store and the
+// login handler using this TTL; the generator only records IssuedAt.
 func (b *ChallengeNonceGeneratorBuilder) WithNonceTTL(ttl time.Duration) *ChallengeNonceGeneratorBuilder {
 	if ttl > 0 {
 		b.ttl = ttl
@@ -104,9 +106,11 @@ func (b *ChallengeNonceGeneratorBuilder) Build() (ChallengeNonceGenerator, error
 	if b.store == nil {
 		return nil, errStoreNil
 	}
+	if b.ttl <= 0 {
+		b.ttl = DefaultNonceTTL
+	}
 	return &challengeNonceGenerator{
 		store:     b.store,
-		ttl:       b.ttl,
 		nonceSize: b.nonceSize,
 		random:    b.random,
 		now:       b.now,
