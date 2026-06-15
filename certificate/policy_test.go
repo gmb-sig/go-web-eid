@@ -27,9 +27,22 @@ func testCert(t *testing.T, serialNumber string, policies []asn1.ObjectIdentifie
 			CommonName:   "TEST PERSON",
 			SerialNumber: serialNumber,
 		},
-		NotBefore:         time.Now().Add(-time.Hour),
-		NotAfter:          time.Now().Add(time.Hour),
-		PolicyIdentifiers: policies,
+		NotBefore: time.Now().Add(-time.Hour),
+		NotAfter:  time.Now().Add(time.Hour),
+	}
+	// Go 1.24+ defaults GODEBUG x509usepolicies=1, so CreateCertificate builds
+	// the certificatePolicies extension from Policies ([]x509.OID) and ignores
+	// the deprecated PolicyIdentifiers. Populate the new field.
+	for _, p := range policies {
+		ints := make([]uint64, len(p))
+		for i, v := range p {
+			ints[i] = uint64(v)
+		}
+		oid, err := x509.OIDFromInts(ints)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tmpl.Policies = append(tmpl.Policies, oid)
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	if err != nil {
