@@ -85,15 +85,22 @@ func New(cfg *Configuration, opts ...Option) (*Handler, error) {
 		return nil, err
 	}
 
+	acceptedPolicies, err := certificate.ParseOIDs(cfg.SigningAcceptedPolicyOIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	signerOpts := signing.Options{
-		HashPreference: cfg.SigningHashPreference,
-		Trust:          trust,
+		HashPreference:   cfg.SigningHashPreference,
+		Trust:            trust,
+		AcceptedPolicies: acceptedPolicies,
 	}
 	if cfg.OCSPEnabled {
 		signerOpts.OCSPChecker = ocsp.NewChecker(ocsp.Options{
-			RequestTimeout:    cfg.OCSPRequestTimeout,
-			Designated:        designatedConfig(cfg),
-			NonceDisabledURLs: cfg.OCSPNonceDisabledURLs,
+			RequestTimeout:       cfg.OCSPRequestTimeout,
+			Designated:           designatedConfig(cfg),
+			NonceDisabledURLs:    cfg.OCSPNonceDisabledURLs,
+			AllowedResponderURLs: cfg.OCSPAllowedResponderURLs,
 		})
 	}
 	signer, err := signing.NewSigner(signerOpts)
@@ -132,7 +139,18 @@ func buildValidator(cfg *Configuration, cas []*x509.Certificate) (webeid.AuthTok
 		WithSiteOrigin(cfg.Origin).
 		WithTrustedCertificateAuthorities(cas...).
 		WithOcspRequestTimeout(cfg.OCSPRequestTimeout).
-		WithNonceDisabledOcspUrls(cfg.OCSPNonceDisabledURLs...)
+		WithNonceDisabledOcspUrls(cfg.OCSPNonceDisabledURLs...).
+		WithAllowedOcspResponderURLs(cfg.OCSPAllowedResponderURLs...)
+	if cfg.AllowInsecureLocalhost {
+		b.WithAllowInsecureLocalhostOrigin()
+	}
+	if len(cfg.DisallowedPolicyOIDs) > 0 {
+		oids, err := certificate.ParseOIDs(cfg.DisallowedPolicyOIDs)
+		if err != nil {
+			return nil, err
+		}
+		b.WithDisallowedCertificatePolicies(oids...)
+	}
 	if !cfg.OCSPEnabled {
 		b.WithoutUserCertificateRevocationCheckWithOcsp()
 	}

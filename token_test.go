@@ -48,19 +48,22 @@ func TestParseRejectsMissingCertificate(t *testing.T) {
 	qt.Assert(t, qt.IsNotNil(err))
 }
 
-func TestParseRejectsUnknownField(t *testing.T) {
-	_, err := Parse([]byte(`{"unverifiedCertificate":"x","algorithm":"ES256","signature":"y","format":"web-eid:1.0","evil":"1"}`))
-	qt.Assert(t, qt.IsNotNil(err))
+// Unknown fields are TOLERATED by design (token-format minor versions may add
+// fields) — see TestParse_ToleratesUnknownFields in hardening_internal_test.go.
+func TestParseAcceptsUnknownField(t *testing.T) {
+	tok, err := Parse([]byte(`{"unverifiedCertificate":"x","algorithm":"ES256","signature":"y","format":"web-eid:1.0","extra":"1"}`))
+	qt.Assert(t, qt.IsNil(err))
+	qt.Check(t, qt.Equals(tok.Algorithm, "ES256"))
 }
 
 func TestNormalizeOrigin(t *testing.T) {
-	got, err := normalizeOrigin("https://example.org")
+	got, err := normalizeOrigin("https://example.org", false)
 	qt.Assert(t, qt.IsNil(err))
 	qt.Check(t, qt.Equals(got, "https://example.org"))
 
-	_, err = normalizeOrigin("https://example.org/path")
+	_, err = normalizeOrigin("https://example.org/path", false)
 	qt.Check(t, qt.IsNotNil(err))
 
-	_, err = normalizeOrigin("http://example.org")
+	_, err = normalizeOrigin("http://example.org", false)
 	qt.Check(t, qt.IsNotNil(err))
 }

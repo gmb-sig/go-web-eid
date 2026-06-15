@@ -95,6 +95,12 @@ var (
 	ErrOCSPRequestFailed = newError("OCSP_REQUEST_FAILED", "certificate revocation check failed", 502)
 	// ErrNoSupportedHashFunction indicates no configured hash is offered by the card.
 	ErrNoSupportedHashFunction = newError("NO_SUPPORTED_HASH_FUNCTION", "no supported hash function available", 422)
+	// ErrSignatureValueInvalid indicates the card's signature value did not
+	// verify against the digest and signing certificate (verified finalize).
+	ErrSignatureValueInvalid = newError("SIGNATURE_VALUE_INVALID", "signature value does not verify against the digest", 422)
+	// ErrIdentityBindingMismatch indicates the authentication and signing
+	// certificates belong to different natural persons.
+	ErrIdentityBindingMismatch = newError("IDENTITY_BINDING_MISMATCH", "authentication and signing certificates belong to different persons", 422)
 )
 
 // Wrap returns a copy of the given typed error carrying the supplied cause.

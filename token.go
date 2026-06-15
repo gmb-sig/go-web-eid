@@ -51,13 +51,17 @@ type AuthToken struct {
 // document. It rejects empty mandatory fields, unknown algorithms and
 // unsupported format major versions, but performs no cryptographic checks —
 // those are the responsibility of AuthTokenValidator.Validate.
+//
+// Unknown JSON fields are tolerated by design: the token format's MINOR
+// version exists so official clients can add new (ignorable) fields without a
+// breaking change — a "web-eid:1.x" token with extra fields is spec-valid and
+// must not be rejected. Only the known fields are validated.
 func Parse(tokenJSON []byte) (*AuthToken, error) {
 	if len(tokenJSON) == 0 {
 		return nil, exceptions.Wrap(exceptions.ErrTokenParse, errEmptyToken)
 	}
 
 	dec := json.NewDecoder(strings.NewReader(string(tokenJSON)))
-	dec.DisallowUnknownFields()
 
 	var token AuthToken
 	if err := dec.Decode(&token); err != nil {

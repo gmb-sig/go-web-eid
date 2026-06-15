@@ -60,6 +60,13 @@ type SigningCertificateResponse struct {
 }
 
 // FinalizeRequest is the body of POST /sign/finalize.
+//
+// Digest and SigningCertificate are OPTIONAL and enable the "verified
+// finalize": when both are present the service verifies the card's signature
+// value against the digest with the signing certificate's public key, and
+// asserts the auth ↔ signing certificate identity binding (same natural
+// person; organisational seal certificates skip the person binding). Supplying
+// only one of the two is an error.
 type FinalizeRequest struct {
 	// Signature is the base64-encoded raw card signature value (signed digest).
 	Signature string `json:"signature" validate:"required"`
@@ -67,6 +74,12 @@ type FinalizeRequest struct {
 	SignatureAlgorithm signing.SignatureAlgorithm `json:"signatureAlgorithm"`
 	// AuthCertificate is the base64-encoded DER authentication certificate.
 	AuthCertificate string `json:"authCertificate" validate:"required"`
+	// Digest is the base64-encoded digest that was sent to the card (optional —
+	// enables verified finalize together with SigningCertificate).
+	Digest string `json:"digest,omitempty"`
+	// SigningCertificate is the base64-encoded DER signing certificate
+	// (optional — enables verified finalize together with Digest).
+	SigningCertificate string `json:"signingCertificate,omitempty"`
 }
 
 // Validate implements azugo.Validator.
@@ -84,4 +97,12 @@ type FinalizeResponse struct {
 	Signature string `json:"signature,omitempty"`
 	// AuthCertificate is the base64-encoded DER authentication certificate.
 	AuthCertificate string `json:"authCertificate,omitempty"`
+	// SignatureVerified is true when the verified-finalize inputs were supplied
+	// and the card's signature value verified against the digest.
+	SignatureVerified bool `json:"signatureVerified"`
+	// IdentityBound is true when the auth and signing certificates were
+	// confirmed to belong to the same natural person; false when the check was
+	// skipped (no verified-finalize inputs, or an organisational seal
+	// certificate). A binding MISMATCH fails the request instead.
+	IdentityBound bool `json:"identityBound"`
 }

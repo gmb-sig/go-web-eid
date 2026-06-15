@@ -10,6 +10,7 @@ import (
 	"github.com/gmb-sig/go-web-eid/assertion"
 	"github.com/gmb-sig/go-web-eid/certificate"
 	"github.com/gmb-sig/go-web-eid/exceptions"
+	"github.com/gmb-sig/go-web-eid/signing"
 )
 
 // Bind registers the four Web eID endpoints on the given router, each behind
@@ -183,9 +184,65 @@ func (h *Handler) finalize(ctx *azugo.Context) {
 		ctx.Error(err)
 		return
 	}
+
+	// Verified finalize: when the caller supplies the digest and the signing
+	// certificate, verify the card's signature value and the identity binding
+	// before echoing anything back.
+	var (
+		sigVerified   bool
+		identityBound bool
+	)
+	if req.Digest != "" || req.SigningCertificate != "" {
+		if req.Digest == "" || req.SigningCertificate == "" {
+			ctx.Error(exceptions.Wrap(exceptions.ErrSignatureValueInvalid,
+				errVerifiedFinalizeNeedsBoth))
+			return
+		}
+		digest, derr := base64.StdEncoding.DecodeString(req.Digest)
+		if derr != nil {
+			ctx.Error(exceptions.Wrap(exceptions.ErrSignatureValueInvalid, derr))
+			return
+		}
+		signDER, derr := base64.StdEncoding.DecodeString(req.SigningCertificate)
+		if derr != nil {
+			ctx.Error(exceptions.Wrap(exceptions.ErrSigningCertificateInvalid, derr))
+			return
+		}
+		signCert, derr := signing.ParseSigningCertificate(signDER)
+		if derr != nil {
+			ctx.Error(derr)
+			return
+		}
+		if verr := signing.VerifySignatureValue(signCert, req.SignatureAlgorithm, digest, sig); verr != nil {
+			ctx.Error(verr)
+			return
+		}
+		sigVerified = true
+
+		checked, berr := certificate.CheckSameNaturalPerson(authCert, signCert)
+		if berr != nil {
+			ctx.Error(berr)
+			return
+		}
+		// checked=false: organisational seal certificate (or non-PNO subject) —
+		// person binding does not apply; the integrator authorises seal use.
+		identityBound = checked
+	}
+
 	ctx.JSON(FinalizeResponse{
-		Status:          "ok",
-		Signature:       base64.StdEncoding.EncodeToString(signed),
-		AuthCertificate: base64.StdEncoding.EncodeToString(authCert.Raw),
+		Status:            "ok",
+		Signature:         base64.StdEncoding.EncodeToString(signed),
+		AuthCertificate:   base64.StdEncoding.EncodeToString(authCert.Raw),
+		SignatureVerified: sigVerified,
+		IdentityBound:     identityBound,
 	})
+}
+
+// errVerifiedFinalizeNeedsBoth signals a partial verified-finalize request.
+var errVerifiedFinalizeNeedsBoth = errPartialVerifiedFinalize{}
+
+type errPartialVerifiedFinalize struct{}
+
+func (errPartialVerifiedFinalize) Error() string {
+	return "verified finalize requires both digest and signingCertificate"
 }

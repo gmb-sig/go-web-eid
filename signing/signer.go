@@ -3,6 +3,7 @@ package signing
 import (
 	"context"
 	"crypto/x509"
+	"encoding/asn1"
 	"time"
 
 	"github.com/gmb-sig/go-web-eid/certificate"
@@ -19,10 +20,11 @@ import (
 // a document digest. The digest-to-sign is supplied by the integrating back
 // end, and the actual card signature is produced client-side by web-eid.js.
 type Signer struct {
-	hashPreference []string
-	trust          *certificate.TrustStore
-	ocspChecker    *ocsp.Checker
-	now            func() time.Time
+	hashPreference   []string
+	trust            *certificate.TrustStore
+	ocspChecker      *ocsp.Checker
+	acceptedPolicies []asn1.ObjectIdentifier
+	now              func() time.Time
 }
 
 // Options configures a Signer.
@@ -33,6 +35,11 @@ type Options struct {
 	Trust *certificate.TrustStore
 	// OCSPChecker, when set, checks signing-certificate revocation.
 	OCSPChecker *ocsp.Checker
+	// AcceptedPolicies, when set, are certificate-policy OIDs of which the
+	// signing certificate must assert AT LEAST ONE (any-of) — e.g.
+	// certificate.LVCardQSCDSigningPolicies() to accept only LVRTC QSCD card
+	// products, or certificate.OIDQCPNaturalQSCD for the generic ETSI gate.
+	AcceptedPolicies []asn1.ObjectIdentifier
 	// Now overrides the clock (primarily for testing).
 	Now func() time.Time
 }
@@ -52,10 +59,11 @@ func NewSigner(opts Options) (*Signer, error) {
 		now = time.Now
 	}
 	return &Signer{
-		hashPreference: opts.HashPreference,
-		trust:          opts.Trust,
-		ocspChecker:    opts.OCSPChecker,
-		now:            now,
+		hashPreference:   opts.HashPreference,
+		trust:            opts.Trust,
+		ocspChecker:      opts.OCSPChecker,
+		acceptedPolicies: opts.AcceptedPolicies,
+		now:              now,
 	}, nil
 }
 
@@ -69,6 +77,10 @@ func (s *Signer) PrepareSigning(ctx context.Context, signingCertDER []byte, supp
 
 	now := s.now()
 	if err = validateSigningCertificate(cert, now); err != nil {
+		return nil, SignatureAlgorithm{}, "", err
+	}
+
+	if err = certificate.CheckAcceptedPolicies(cert, s.acceptedPolicies); err != nil {
 		return nil, SignatureAlgorithm{}, "", err
 	}
 

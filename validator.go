@@ -126,14 +126,20 @@ func (v *authTokenValidator) verifySignature(token *AuthToken, cert *x509.Certif
 }
 
 // normalizeOrigin validates and canonicalises a site origin: scheme://host[:port]
-// with no path, query or trailing slash. Only https is accepted.
-func normalizeOrigin(origin string) (string, error) {
+// with no path, query or trailing slash. Only https is accepted — except that,
+// when allowInsecureLocalhost is set, http is additionally accepted for
+// localhost loopback hosts so developers can test against the real Web eID
+// extension without local TLS (the official extension permits http://localhost
+// for development). Never enable it outside development.
+func normalizeOrigin(origin string, allowInsecureLocalhost bool) (string, error) {
 	u, err := url.Parse(origin)
 	if err != nil {
 		return "", errors.Join(errOriginRequired, err)
 	}
 	if u.Scheme != "https" {
-		return "", errors.New("site origin must use https")
+		if !(allowInsecureLocalhost && u.Scheme == "http" && isLoopbackHost(u.Hostname())) {
+			return "", errors.New("site origin must use https")
+		}
 	}
 	if u.Host == "" {
 		return "", errOriginRequired
@@ -142,4 +148,13 @@ func normalizeOrigin(origin string) (string, error) {
 		return "", errors.New("site origin must not contain a path, query or fragment")
 	}
 	return strings.TrimSuffix(u.Scheme+"://"+u.Host, "/"), nil
+}
+
+// isLoopbackHost reports whether host names the local loopback.
+func isLoopbackHost(host string) bool {
+	switch strings.ToLower(host) {
+	case "localhost", "127.0.0.1", "::1":
+		return true
+	}
+	return false
 }

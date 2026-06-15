@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/x509"
+	neturl "net/url"
+	"strings"
 	"time"
 
 	"github.com/gmb-sig/go-web-eid/exceptions"
@@ -22,6 +24,15 @@ type Options struct {
 	// NonceDisabledURLs lists responder URLs that do not support the nonce
 	// extension; requests to them omit the nonce.
 	NonceDisabledURLs []string
+	// AllowedResponderURLs, when non-empty, restricts AIA-derived responder
+	// URLs to this allowlist (matched by full URL or by host, case-insensitive).
+	// It is an SSRF guard: the responder URL comes from the user-supplied
+	// certificate's AIA extension, so without an allowlist a crafted
+	// certificate can point the checker at an arbitrary internal URL. The
+	// operator-configured designated responder bypasses the list. Empty = no
+	// restriction (backward compatible) — production deployments should set it
+	// to the QTSP's responders.
+	AllowedResponderURLs []string
 	// AllowedResponseTimeSkew bounds clock skew for thisUpdate/nextUpdate.
 	AllowedResponseTimeSkew time.Duration
 	// MaxResponseThisUpdateAge bounds how old thisUpdate may be.
@@ -129,7 +140,67 @@ func (c *Checker) resolveResponder(cert, issuer *x509.Certificate) (url string, 
 	if err != nil {
 		return "", nil, false, wrapOCSPError(err)
 	}
+	if !c.isResponderAllowed(url) {
+		return "", nil, false, wrapOCSPError(errOCSPResponderNotAllowed)
+	}
 	return url, nil, c.isNonceDisabled(url), nil
+}
+
+// errOCSPResponderNotAllowed is returned when an AIA-derived responder URL is
+// not on the configured allowlist.
+var errOCSPResponderNotAllowed = errResponderNotAllowed{}
+
+type errResponderNotAllowed struct{}
+
+func (errResponderNotAllowed) Error() string {
+	return "AIA OCSP responder URL is not on the configured allowlist"
+}
+
+// isResponderAllowed checks an AIA-derived responder URL against the
+// allowlist: exact URL match or host match, case-insensitive. An empty
+// allowlist permits everything.
+func (c *Checker) isResponderAllowed(responderURL string) bool {
+	if len(c.opts.AllowedResponderURLs) == 0 {
+		return true
+	}
+	host := hostOf(responderURL)
+	for _, allowed := range c.opts.AllowedResponderURLs {
+		if equalFoldTrim(allowed, responderURL) {
+			return true
+		}
+		if h := hostOf(allowed); h != "" && h == host {
+			return true
+		}
+		// Bare-host allowlist entries (no scheme) match the URL host directly.
+		if !hasScheme(allowed) && equalFoldTrim(allowed, host) {
+			return true
+		}
+	}
+	return false
+}
+
+// hostOf extracts the lower-cased host (without port) from a URL string,
+// returning "" when it cannot be parsed as a URL with a scheme.
+func hostOf(rawURL string) string {
+	u, err := neturl.Parse(strings.TrimSpace(rawURL))
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return strings.ToLower(u.Hostname())
+}
+
+// hasScheme reports whether the value looks like a URL with a scheme.
+func hasScheme(v string) bool {
+	return strings.Contains(v, "://")
+}
+
+// equalFoldTrim compares two strings case-insensitively after trimming spaces
+// and any trailing slash.
+func equalFoldTrim(a, b string) bool {
+	norm := func(s string) string {
+		return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(s), "/"))
+	}
+	return norm(a) == norm(b)
 }
 
 // isNonceDisabled reports whether the responder URL is in the nonce-disabled list.

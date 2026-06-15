@@ -12,7 +12,8 @@ import (
 // AuthTokenValidatorBuilder builds an AuthTokenValidator. It mirrors the Java
 // AuthTokenValidatorBuilder so existing RIA documentation maps onto it.
 type AuthTokenValidatorBuilder struct {
-	origin string
+	origin                 string
+	allowInsecureLocalhost bool
 
 	trustedCAs []*x509.Certificate
 
@@ -21,6 +22,7 @@ type AuthTokenValidatorBuilder struct {
 	ocspRequestTimeout   time.Duration
 	designatedOCSP       *ocsp.DesignatedServiceConfiguration
 	nonceDisabledOCSPURL []string
+	allowedOCSPURLs      []string
 	ocspSkew             time.Duration
 	ocspMaxThisUpdateAge time.Duration
 
@@ -46,6 +48,14 @@ func NewAuthTokenValidatorBuilder() *AuthTokenValidatorBuilder {
 // https://host[:port] with no trailing slash (required).
 func (b *AuthTokenValidatorBuilder) WithSiteOrigin(origin string) *AuthTokenValidatorBuilder {
 	b.origin = origin
+	return b
+}
+
+// WithAllowInsecureLocalhostOrigin additionally accepts an http:// origin for
+// localhost loopback hosts — development only, mirroring the official
+// extension's localhost allowance. Never enable in production.
+func (b *AuthTokenValidatorBuilder) WithAllowInsecureLocalhostOrigin() *AuthTokenValidatorBuilder {
+	b.allowInsecureLocalhost = true
 	return b
 }
 
@@ -95,6 +105,14 @@ func (b *AuthTokenValidatorBuilder) WithNonceDisabledOcspUrls(urls ...string) *A
 	return b
 }
 
+// WithAllowedOcspResponderURLs restricts AIA-derived OCSP responder URLs to an
+// allowlist (full URL or host entries) — an SSRF guard, since the responder URL
+// originates from the user-supplied certificate. Empty = unrestricted.
+func (b *AuthTokenValidatorBuilder) WithAllowedOcspResponderURLs(urls ...string) *AuthTokenValidatorBuilder {
+	b.allowedOCSPURLs = append(b.allowedOCSPURLs, urls...)
+	return b
+}
+
 // WithAllowedOcspResponseTimeSkew sets the allowed thisUpdate/nextUpdate skew.
 func (b *AuthTokenValidatorBuilder) WithAllowedOcspResponseTimeSkew(d time.Duration) *AuthTokenValidatorBuilder {
 	if d > 0 {
@@ -116,7 +134,7 @@ func (b *AuthTokenValidatorBuilder) Build() (AuthTokenValidator, error) {
 	if b.origin == "" {
 		return nil, errOriginRequired
 	}
-	normalizedOrigin, err := normalizeOrigin(b.origin)
+	normalizedOrigin, err := normalizeOrigin(b.origin, b.allowInsecureLocalhost)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +156,7 @@ func (b *AuthTokenValidatorBuilder) Build() (AuthTokenValidator, error) {
 			RequestTimeout:           b.ocspRequestTimeout,
 			Designated:               b.designatedOCSP,
 			NonceDisabledURLs:        b.nonceDisabledOCSPURL,
+			AllowedResponderURLs:     b.allowedOCSPURLs,
 			AllowedResponseTimeSkew:  b.ocspSkew,
 			MaxResponseThisUpdateAge: b.ocspMaxThisUpdateAge,
 			Now:                      b.now,
