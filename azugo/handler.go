@@ -3,6 +3,7 @@ package webeidazugo
 import (
 	"crypto/x509"
 	"errors"
+	"net/http"
 	"os"
 
 	webeid "github.com/gmb-sig/go-web-eid"
@@ -20,6 +21,11 @@ type Handler struct {
 	generator webeid.ChallengeNonceGenerator
 	store     webeid.ChallengeNonceStore
 	signer    *signing.Signer
+
+	// ocspTransport, when set (WithOCSPTransport), is the RoundTripper used for
+	// OCSP responder requests — e.g. an instrumented transport injected by the
+	// hosting service. Library stays dependency-pure: just a stdlib RoundTripper.
+	ocspTransport http.RoundTripper
 
 	// assertionIssuer, when set, makes /auth/login return a signed identity
 	// assertion; publishedKeys backs the JWKS endpoint.
@@ -63,6 +69,17 @@ func WithPublishedJWKS(keys *assertion.KeySet) Option {
 	}
 }
 
+// WithOCSPTransport injects a custom http.RoundTripper for OCSP responder
+// requests — e.g. an OpenTelemetry-instrumented transport supplied by the
+// hosting service so OCSP exchanges appear as client spans. Only used when OCSP
+// is enabled. Keeps this library dependency-pure: it takes a stdlib
+// RoundTripper, never a tracing package.
+func WithOCSPTransport(rt http.RoundTripper) Option {
+	return func(h *Handler) {
+		h.ocspTransport = rt
+	}
+}
+
 // New builds a Handler from configuration, loading the trusted intermediate CA
 // certificates and wiring the validator, nonce generator and signer. Options
 // may override the nonce store and enable assertion issuance.
@@ -90,35 +107,41 @@ func New(cfg *Configuration, opts ...Option) (*Handler, error) {
 		return nil, err
 	}
 
+	h := &Handler{
+		config:    cfg,
+		validator: validator,
+	}
+	// Default in-process nonce store; overridable via WithNonceStore.
+	h.store = NewSessionStore(cfg)
+
+	// Apply options BEFORE building the signer/OCSP checker so a custom OCSP
+	// transport (WithOCSPTransport) and store override are honoured.
+	for _, o := range opts {
+		o(h)
+	}
+
 	signerOpts := signing.Options{
 		HashPreference:   cfg.SigningHashPreference,
 		Trust:            trust,
 		AcceptedPolicies: acceptedPolicies,
 	}
 	if cfg.OCSPEnabled {
-		signerOpts.OCSPChecker = ocsp.NewChecker(ocsp.Options{
+		ocspOpts := ocsp.Options{
 			RequestTimeout:       cfg.OCSPRequestTimeout,
 			Designated:           designatedConfig(cfg),
 			NonceDisabledURLs:    cfg.OCSPNonceDisabledURLs,
 			AllowedResponderURLs: cfg.OCSPAllowedResponderURLs,
-		})
+		}
+		if h.ocspTransport != nil {
+			ocspOpts.Client = &ocsp.HTTPClient{Transport: h.ocspTransport}
+		}
+		signerOpts.OCSPChecker = ocsp.NewChecker(ocspOpts)
 	}
 	signer, err := signing.NewSigner(signerOpts)
 	if err != nil {
 		return nil, err
 	}
-
-	h := &Handler{
-		config:    cfg,
-		validator: validator,
-		signer:    signer,
-	}
-	// Default in-process nonce store; overridable via WithNonceStore.
-	h.store = NewSessionStore(cfg)
-
-	for _, o := range opts {
-		o(h)
-	}
+	h.signer = signer
 
 	// The generator binds to the (possibly overridden) store.
 	generator, err := webeid.NewChallengeNonceGeneratorBuilder().

@@ -20,7 +20,13 @@ The library is split into:
 In scope: challenge-nonce generation/storage, authentication-token parsing and
 validation (chain, validity, key usage, policies, OCSP, signature), and the
 card-operations signing flow (signing-certificate validation, algorithm/hash
-negotiation, digest relay, auth-certificate surfacing).
+negotiation, digest relay, auth-certificate surfacing). **As of v0.9.0 also
+"verified finalize"** — optional signature-value verification
+(`signing.VerifySignatureValue`) + authentication↔signing **identity binding**
+(`certificate.CheckSameNaturalPerson`, `certificate/policy.go`) + an OCSP
+responder allowlist; `/sign/finalize` returns `sigVerified`/`identityBound` when
+given `digest`+`signingCertificate`. ECDSA signature bytes are still surfaced as
+raw P1363 (no DER re-encoding).
 
 Out of scope: signature-container assembly and validation (XAdES/ASiC-E,
 PAdES, …). Those belong to the integrating back end, which can plug in any tool
