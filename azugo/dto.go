@@ -22,6 +22,20 @@ func (r *LoginRequest) Validate(ctx *azugo.Context) error {
 	return ctx.Validate().Struct(r)
 }
 
+// ValidateRequest is the body of the STATELESS POST /auth/validate. Unlike
+// /auth/login, the challenge nonce is supplied in the body by the consuming Auth
+// service (which owns the challenge + session), so no cookie session is needed.
+// Intended for server-to-server use (proposal v3 §11).
+type ValidateRequest struct {
+	AuthToken webeid.AuthToken `json:"authToken" validate:"required"`
+	Nonce     string           `json:"nonce" validate:"required"`
+}
+
+// Validate implements azugo.Validator.
+func (r *ValidateRequest) Validate(ctx *azugo.Context) error {
+	return ctx.Validate().Struct(r)
+}
+
 // SubjectResponse is the validated identity returned by POST /auth/login.
 type SubjectResponse struct {
 	CommonName  string `json:"commonName,omitempty"`
