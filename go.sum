@@ -1,7 +1,7 @@
-azugo.io/azugo v0.33.0 h1:BlLwXa+b8RQuI0j1fRXqAR9rP9OOMylroE+/6tYoRP0=
-azugo.io/azugo v0.33.0/go.mod h1:AiJXPAqgnkF5F0QOgm4wgG/a5QOsYPw3NEYvJwWC/8M=
-azugo.io/core v0.33.0 h1:CN5fdNvyGe379la8OBIDOEXODB/2pm5tDxfJ898VxjU=
-azugo.io/core v0.33.0/go.mod h1:YTzc0IP2+2fKpwmtDNDpz1dIn9J+swax6bAy7bj6Lmk=
+azugo.io/azugo v0.34.0 h1:QZe80E1uEKHlIhTRjR4nuIEAIGszDQxJfgSBxIbxIRo=
+azugo.io/azugo v0.34.0/go.mod h1:zi8y/Ve6IR66Vv2GsjN1xg+nNKrfVjdCpZXw1XRE3HU=
+azugo.io/core v0.34.0 h1:iVYyIjfQGAfHQWSHNJrJG85H2gkOXmXOyySxulDuJsM=
+azugo.io/core v0.34.0/go.mod h1:YTzc0IP2+2fKpwmtDNDpz1dIn9J+swax6bAy7bj6Lmk=
 github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a h1:HbKu58rmZpUGpz5+4FfNmIU+FmZg2P3Xaj2v2bfNWmk=
 github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a/go.mod h1:SGnFV6hVsYE877CKEZ6tDNTjaSXYUk6QqoIK6PrAtcc=
 github.com/alicebob/miniredis/v2 v2.33.0 h1:uvTF0EDeu9RLnUEG27Db5I68ESoIxTiXbNUiji6lZrA=

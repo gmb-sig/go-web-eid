@@ -3,8 +3,8 @@ module github.com/gmb-sig/go-web-eid
 go 1.25.0
 
 require (
-	azugo.io/azugo v0.33.0
-	azugo.io/core v0.33.0
+	azugo.io/azugo v0.34.0
+	azugo.io/core v0.34.0
 	github.com/alicebob/miniredis/v2 v2.33.0
 	github.com/go-quicktest/qt v1.102.0
 	github.com/redis/go-redis/v9 v9.20.1
