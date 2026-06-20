@@ -59,7 +59,7 @@ func LoadCertificatesFromDER(paths ...string) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-// LoadCertificatesFromDir loads every .pem/.crt/.cer/.der file from a directory
+// LoadCertificatesFromDir loads every.pem/.crt/.cer/.der file from a directory
 // as trust anchors. PEM and DER encodings are both accepted.
 func LoadCertificatesFromDir(dir string) ([]*x509.Certificate, error) {
 	entries, err := os.ReadDir(dir)

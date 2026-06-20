@@ -53,8 +53,8 @@ type Configuration struct {
 	// SigningAcceptedPolicyOIDs lists certificate-policy OIDs (dotted decimal)
 	// of which the SIGNING certificate must assert AT LEAST ONE (any-of) — the
 	// acceptance gate for QSCD/QES-grade products. For Latvia list the LVRTC
-	// QSCD card-product policies (1.3.6.1.4.1.32061.2.1.2.1, .2.1.2.2,
-	// .2.1.4.1, .2.1.5.1) and/or the generic ETSI QCP-n-qscd "0.4.0.194112.1.2".
+	// QSCD card-product policies (1.3.6.1.4.1.32061.2.1.2.1,.2.1.2.2,
+	//.2.1.4.1,.2.1.5.1) and/or the generic ETSI QCP-n-qscd "0.4.0.194112.1.2".
 	SigningAcceptedPolicyOIDs []string `mapstructure:"signing_accepted_policy_oids"`
 }
 
