@@ -114,7 +114,7 @@ application.
 | `WEBEID_OCSP_REQUEST_TIMEOUT` | `5s` | per-request OCSP timeout |
 | `WEBEID_DESIGNATED_OCSP_URL` | – | optional designated responder URL |
 | `WEBEID_SESSION_COOKIE_NAME` | `WEBEID_SESSION` | pre-auth session cookie |
-| `WEBEID_SIGNING_HASH_PREFERENCE` | `SHA-256,SHA-384,SHA-512` | ordered hash preference (N7) |
+| `WEBEID_SIGNING_HASH_PREFERENCE` | `SHA-256,SHA-384,SHA-512` | ordered hash preference |
 
 ## Security
 

@@ -1,3 +1,4 @@
+// Deprecated: moved to github.com/gmb-lib/go-web-eid. Update imports to the new path.
 module github.com/gmb-sig/go-web-eid
 
 go 1.25.0

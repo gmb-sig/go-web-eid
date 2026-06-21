@@ -31,7 +31,7 @@ type Configuration struct {
 	OCSPNonceDisabledURLs []string `mapstructure:"ocsp_nonce_disabled_urls"`
 	// SessionCookieName is the pre-auth session cookie name.
 	SessionCookieName string `mapstructure:"session_cookie_name" validate:"required"`
-	// SigningHashPreference is the ordered hash-function preference list (N7).
+	// SigningHashPreference is the ordered hash-function preference list.
 	SigningHashPreference []string `mapstructure:"signing_hash_preference" validate:"required,min=1,dive,oneof=SHA-224 SHA-256 SHA-384 SHA-512 SHA3-224 SHA3-256 SHA3-384 SHA3-512"`
 	// AllowInsecureLocalhost additionally accepts an http:// Origin for
 	// localhost loopback hosts — DEVELOPMENT ONLY (mirrors the official

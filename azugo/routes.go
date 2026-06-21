@@ -24,7 +24,7 @@ func (h *Handler) Bind(g azugo.Router) error {
 	auth.Get("/challenge", h.challenge)
 	auth.Post("/login", h.login)
 
-	// Stateless validation (proposal v3 §11): the nonce is in the request body
+	// Stateless validation: the nonce is in the request body
 	// (the consuming Auth service owns the challenge/session), so this route is
 	// registered WITHOUT EnsureSession. It is still subject to whatever auth the
 	// integrator gates the router with (the engine puts it behind service auth).
@@ -130,7 +130,7 @@ func (h *Handler) login(ctx *azugo.Context) {
 	ctx.JSON(subject)
 }
 
-// validate is the STATELESS authentication-token validation (proposal v3 §11):
+// validate is the STATELESS authentication-token validation:
 // the challenge nonce is supplied in the request body by the consuming Auth
 // service (which owns the challenge/session), so there is no cookie session.
 // It returns the validated subject (or a signed assertion when an issuer is

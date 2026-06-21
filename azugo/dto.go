@@ -25,7 +25,7 @@ func (r *LoginRequest) Validate(ctx *azugo.Context) error {
 // ValidateRequest is the body of the STATELESS POST /auth/validate. Unlike
 // /auth/login, the challenge nonce is supplied in the body by the consuming Auth
 // service (which owns the challenge + session), so no cookie session is needed.
-// Intended for server-to-server use (proposal v3 §11).
+// Intended for server-to-server use.
 type ValidateRequest struct {
 	AuthToken webeid.AuthToken `json:"authToken" validate:"required"`
 	Nonce     string           `json:"nonce" validate:"required"`
