@@ -31,7 +31,7 @@ type Configuration struct {
 	OCSPNonceDisabledURLs []string `mapstructure:"ocsp_nonce_disabled_urls"`
 	// SessionCookieName is the pre-auth session cookie name.
 	SessionCookieName string `mapstructure:"session_cookie_name" validate:"required"`
-	// SigningHashPreference is the ordered hash-function preference list (N7).
+	// SigningHashPreference is the ordered hash-function preference list.
 	SigningHashPreference []string `mapstructure:"signing_hash_preference" validate:"required,min=1,dive,oneof=SHA-224 SHA-256 SHA-384 SHA-512 SHA3-224 SHA3-256 SHA3-384 SHA3-512"`
 	// AllowInsecureLocalhost additionally accepts an http:// Origin for
 	// localhost loopback hosts — DEVELOPMENT ONLY (mirrors the official
@@ -53,8 +53,8 @@ type Configuration struct {
 	// SigningAcceptedPolicyOIDs lists certificate-policy OIDs (dotted decimal)
 	// of which the SIGNING certificate must assert AT LEAST ONE (any-of) — the
 	// acceptance gate for QSCD/QES-grade products. For Latvia list the LVRTC
-	// QSCD card-product policies (1.3.6.1.4.1.32061.2.1.2.1, .2.1.2.2,
-	// .2.1.4.1, .2.1.5.1) and/or the generic ETSI QCP-n-qscd "0.4.0.194112.1.2".
+	// QSCD card-product policies (1.3.6.1.4.1.32061.2.1.2.1,.2.1.2.2,
+	//.2.1.4.1,.2.1.5.1) and/or the generic ETSI QCP-n-qscd "0.4.0.194112.1.2".
 	SigningAcceptedPolicyOIDs []string `mapstructure:"signing_accepted_policy_oids"`
 }
 

@@ -29,7 +29,7 @@ type Signer struct {
 
 // Options configures a Signer.
 type Options struct {
-	// HashPreference is the ordered hash-function preference list (N7).
+	// HashPreference is the ordered hash-function preference list.
 	HashPreference []string
 	// Trust, when set, is used to validate the signing certificate chain.
 	Trust *certificate.TrustStore

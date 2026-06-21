@@ -136,7 +136,7 @@ func sessionCookie(t *testing.T, resp *fasthttp.Response) string {
 	t.Helper()
 	raw := string(resp.Header.PeekCookie("WEBEID_SESSION"))
 	qt.Assert(t, qt.IsTrue(raw != ""))
-	// raw is "WEBEID_SESSION=value; Path=/; ..." — take the value.
+	// raw is "WEBEID_SESSION=value; Path=/;..." — take the value.
 	_, after, _ := strings.Cut(raw, "=")
 	value, _, _ := strings.Cut(after, ";")
 	return value

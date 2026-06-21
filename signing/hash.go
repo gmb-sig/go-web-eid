@@ -32,7 +32,7 @@ func IsSupportedHashFunction(name string) bool {
 }
 
 // SelectHashFunction returns the first hash function in the configured ordered
-// preference list (N7) that the card reports in its supported algorithms.
+// preference list that the card reports in its supported algorithms.
 //
 // Nothing is hard-coded: when no preference entry is offered by the card it
 // returns ErrNoSupportedHashFunction.
