@@ -1,5 +1,9 @@
 # go-web-eid
 
+---
+Deprecated: moved to github.com/gmb-lib/go-web-eid. Update imports to the new path.
+---
+
 A native Go implementation of the [Web eID](https://www.id.ee/en/article/web-eid/)
 authentication-token validation and eID-card signing-operations back end.
 
